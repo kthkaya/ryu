@@ -253,6 +253,7 @@ OFPAT_DEC_NW_TTL = 24           # Decrement IP TTL.
 OFPAT_SET_FIELD = 25            # Set a header field using OXM TLV format.
 OFPAT_PUSH_PBB = 26             # Push a new PBB service tag (I-TAG)
 OFPAT_POP_PBB = 27              # Pop the outer PBB service tag (I-TAG)
+OFPAT_SET_TRH_NEXTUID = 31
 OFPAT_EXPERIMENTER = 0xffff
 
 # struct ofp_action_header
