@@ -84,7 +84,7 @@ OFPXMC_NXM_1 = 1  # Nicira Extended Match (NXM_NX_)
 OFPXMC_OPENFLOW_BASIC = 0x8000
 OFPXMC_PACKET_REGS = 0x8001
 OFPXMC_EXPERIMENTER = 0xffff
-
+OFPXMC_TRH = 0xffff
 
 class _OxmClass(object):
     def __init__(self, name, num, type_):
@@ -99,11 +99,9 @@ class _OxmClass(object):
 
 class OpenFlowBasic(_OxmClass):
     _class = OFPXMC_OPENFLOW_BASIC
-
-
+    
 class PacketRegs(_OxmClass):
     _class = OFPXMC_PACKET_REGS
-
 
 class _Experimenter(_OxmClass):
     _class = OFPXMC_EXPERIMENTER
@@ -113,6 +111,8 @@ class _Experimenter(_OxmClass):
         self.num = (self.experimenter_id, self.oxm_type)
         self.exp_type = self.oxm_field
 
+class Trh(_Experimenter):
+    experimenter_id = ofproto_common.TRH_EXPERIMENTER_ID
 
 class ONFExperimenter(_Experimenter):
     experimenter_id = ofproto_common.ONF_EXPERIMENTER_ID
