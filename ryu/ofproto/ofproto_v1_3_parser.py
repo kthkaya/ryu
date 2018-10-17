@@ -3516,7 +3516,61 @@ class OFPActionPopPbb(OFPAction):
             ofproto.OFP_ACTION_HEADER_PACK_STR, buf, offset)
         return cls()
 
-
+@OFPAction.register_action_type(ofproto.OFPAT_PUSH_TRH,
+                                ofproto.OFP_ACTION_PUSH_TRH_SIZE)
+class OFPActionPushTrh(OFPAction):
+    """
+    TRH Stuff
+    
+    Example::
+            actions += [parser.OFPActionPushTrh(
+                            length=8,
+                            version=1,
+                            options=0x123,
+                            nextuid=0x3b4d01]
+    """
+    
+    def __init__(self, length, nextuid, type_=None, len_=None):
+        super(OFPActionPushTrh, self).__init__()
+        
+        """
+        struct ip6_trhdr trh;
+        uint8_t  ip6trh_nxt;           // Next header
+        uint8_t  ip6trh_len;           // Length in units of 8 octets, excluding the first 8 octets (rfc6564 sec 4)
+        uint16_t ip6trh_ver_opt;       // Four bits Version, Twelve bits Options
+        uint32_t ip6trh_nextuid_flags; //Twenty-four bits Next h-VNF UID, Eight bitsFlags
+        TRID
+        struct in6_addr src;
+        struct in6_addr dst;
+        uint16_t sport;
+        uint16_t dport;
+        PAD
+        uint32_t padding;
+        """
+        
+        self.ip6trh_nxt = 1
+        self.ip6trh_len = length
+        self.ip6trh_ver_opt = 0x0101 
+        self.ip6trh_nextuid_flags = nextuid
+        
+        self.in6_addr_src = 0x1010101010101010
+        self.in6_addr_dst = 0x1010101010101010
+        self.sport = 346
+        self.dport = 346
+                
+        
+    @classmethod
+    def parser(cls, buf, offset):
+        (type_, len_) = struct.unpack_from(
+            ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf, offset)
+        return cls() 
+    
+    def serialize(self, buf, offset):        
+        msg_pack_into(ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf,
+                    offset, self.type, self.len, self.ip6trh_nxt,
+                    self.ip6trh_len, self.ip6trh_ver_opt, self.ip6trh_nextuid_flags,
+                    self.in6_addr_src, self.in6_addr_src, self.in6_addr_dst, self.in6_addr_dst, self.sport, self.dport)
+        
 @OFPAction.register_action_type(
     ofproto.OFPAT_EXPERIMENTER,
     ofproto.OFP_ACTION_EXPERIMENTER_HEADER_SIZE)
