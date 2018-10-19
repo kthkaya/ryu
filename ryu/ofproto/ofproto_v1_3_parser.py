@@ -1034,7 +1034,7 @@ class OFPMatch(StringifyMixin):
         OXM_OF_PBB_ISID        PBB I-SID
         OXM_OF_TUNNEL_ID       Logical Port Metadata
         OXM_OF_IPV6_EXTHDR     IPv6 Extension Header pseudo-field
-        OXM_OF_TRH_NEXTUID     TRH Next h-VNF UID
+        OXM_TRH_NEXTUID        TRH Next h-VNF UID
         ====================== ===================================
         """
         self.fields.append(OFPMatchField.make(header, value, mask))
@@ -1292,7 +1292,7 @@ class OFPMatch(StringifyMixin):
             self.append_field(header, self._flow.ipv6_exthdr,
                               self._wc.ipv6_exthdr_mask)
 
-        if self._wc.ft_test(ofproto.OFPXMT_TRHBB_NEXTUID):
+        if self._wc.ft_test(ofproto.OFPXMT_TRHB_NEXTUID):
             if self._wc.ipv6_flabel_mask == UINT32_MAX:
                 header = ofproto.OXM_TRH_NEXTUID
             else:

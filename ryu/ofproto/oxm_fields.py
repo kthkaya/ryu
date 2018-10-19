@@ -78,7 +78,6 @@ from ryu.ofproto.oxx_fields import (
     _serialize_header)
 from ryu.ofproto import ofproto_common
 
-
 OFPXMC_NXM_0 = 0  # Nicira Extended Match (NXM_OF_)
 OFPXMC_NXM_1 = 1  # Nicira Extended Match (NXM_NX_)
 OFPXMC_OPENFLOW_BASIC = 0x8000
@@ -164,13 +163,22 @@ def generate(modname):
         setattr(mod, k, v)
 
     for i in mod.oxm_types:
+        
+        uk = i.name.upper()
+        ofpxmt = i.oxm_field
+        td = i.type
+        
+        if "TRH_NEXTUID" in uk:
+            add_attr('OFPXMT_TRHB_' + uk[-7:], ofpxmt)
+            add_attr('OXM_' + uk, mod.oxm_tlv_header(ofpxmt, td.size))
+            add_attr('OXM_' + uk + '_W', mod.oxm_tlv_header_w(ofpxmt, td.size))
+            continue
+            
         if isinstance(i.num, tuple):
             continue
         if i._class != OFPXMC_OPENFLOW_BASIC:
             continue
-        uk = i.name.upper()
-        ofpxmt = i.oxm_field
-        td = i.type
+                
         add_attr('OFPXMT_OFB_' + uk, ofpxmt)
         add_attr('OXM_OF_' + uk, mod.oxm_tlv_header(ofpxmt, td.size))
         add_attr('OXM_OF_' + uk + '_W', mod.oxm_tlv_header_w(ofpxmt, td.size))
