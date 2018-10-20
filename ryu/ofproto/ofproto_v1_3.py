@@ -177,6 +177,7 @@ OFPXMC_NXM_0 = 0x0000           # Backward compatibility with NXM
 OFPXMC_NXM_1 = 0x0001           # Backward compatibility with NXM
 OFPXMC_OPENFLOW_BASIC = 0x8000  # Basic class for OpenFlow
 OFPXMC_EXPERIMENTER = 0xFFFF    # Experimenter class
+OFPXMC_TRH = 0xFFFF             # TRF
 
 # enum ofp_vlan_id
 OFPVID_PRESENT = 0x1000     # bit that indicate that a VLAN id is set.
@@ -253,7 +254,9 @@ OFPAT_DEC_NW_TTL = 24           # Decrement IP TTL.
 OFPAT_SET_FIELD = 25            # Set a header field using OXM TLV format.
 OFPAT_PUSH_PBB = 26             # Push a new PBB service tag (I-TAG)
 OFPAT_POP_PBB = 27              # Pop the outer PBB service tag (I-TAG)
-OFPAT_POP_TRH = 30
+OFPAT_PUSH_TRH = 29             # TRF pushes TRH header to v6 packets
+OFPAT_POP_TRH = 30              # TRF pop TRH header
+
 OFPAT_EXPERIMENTER = 0xffff
 
 # struct ofp_action_header
@@ -307,6 +310,25 @@ assert calcsize(OFP_ACTION_POP_MPLS_PACK_STR) == OFP_ACTION_POP_MPLS_SIZE
 OFP_ACTION_SET_FIELD_PACK_STR = '!HH4x'
 OFP_ACTION_SET_FIELD_SIZE = 8
 assert calcsize(OFP_ACTION_SET_FIELD_PACK_STR) == OFP_ACTION_SET_FIELD_SIZE
+
+# struct ofp_action_push_trh
+"""
+    struct ip6_trhdr trh;
+    uint8_t  ip6trh_nxt;           // Next header
+    uint8_t  ip6trh_len;           // Length in units of 8 octets, excluding the first 8 octets (rfc6564 sec 4)
+    uint16_t ip6trh_ver_opt;       // Four bits Version, Twelve bits Options
+    uint32_t ip6trh_nextuid_flags; //Twenty-four bits Next h-VNF UID, Eight bitsFlags
+    TRID
+    struct in6_addr src;
+    struct in6_addr dst;
+    uint16_t sport;
+    uint16_t dport;
+    PAD
+    uint32_t padding;
+"""
+OFP_ACTION_PUSH_TRH_PACK_STR = '!HH4xBBHIQQQQHH4x'
+OFP_ACTION_PUSH_TRH_SIZE = 56
+assert calcsize(OFP_ACTION_PUSH_TRH_PACK_STR) == OFP_ACTION_PUSH_TRH_SIZE
 
 # struct ofp_action_experimenter_header
 OFP_ACTION_EXPERIMENTER_HEADER_PACK_STR = '!HHI'
@@ -1230,6 +1252,8 @@ oxm_types = [
     # EXT-233 Output match Extension
     # NOTE(yamamoto): The spec says uint64_t but I assume it's an error.
     oxm_fields.ONFExperimenter('actset_output', 43, type_desc.Int4),
+    #TRH
+    oxm_fields.Trh('trh_nextuid', 45, type_desc.Int4),
 ] + nicira_ext.oxm_types
 
 oxm_fields.generate(__name__)
