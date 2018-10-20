@@ -255,6 +255,8 @@ OFPAT_SET_FIELD = 25            # Set a header field using OXM TLV format.
 OFPAT_PUSH_PBB = 26             # Push a new PBB service tag (I-TAG)
 OFPAT_POP_PBB = 27              # Pop the outer PBB service tag (I-TAG)
 OFPAT_PUSH_TRH = 29             # TRF pushes TRH header to v6 packets
+OFPAT_POP_TRH = 30              # TRF pop TRH header
+
 OFPAT_EXPERIMENTER = 0xffff
 
 # struct ofp_action_header
