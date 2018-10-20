@@ -256,7 +256,7 @@ OFPAT_PUSH_PBB = 26             # Push a new PBB service tag (I-TAG)
 OFPAT_POP_PBB = 27              # Pop the outer PBB service tag (I-TAG)
 OFPAT_PUSH_TRH = 29             # TRF pushes TRH header to v6 packets
 OFPAT_POP_TRH = 30              # TRF pop TRH header
-
+OFPAT_SET_TRH_NEXTUID = 31      # TRF set the NextUID field in TRH
 OFPAT_EXPERIMENTER = 0xffff
 
 # struct ofp_action_header
