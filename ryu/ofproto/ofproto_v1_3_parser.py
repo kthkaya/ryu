@@ -40,6 +40,7 @@ The following extensions are not implemented yet.
     - EXT-192-v Vacancy events Extension
 """
 
+
 import struct
 import base64
 
@@ -3530,7 +3531,7 @@ class OFPActionPushTrh(OFPAction):
                             nextuid=0x3b4d01]
     """
     
-    def __init__(self, length, nextuid, type_=None, len_=None):
+    def __init__(self, length, nextuid, tlvs, type_=None, len_=None):
         super(OFPActionPushTrh, self).__init__()
         
         """
@@ -3547,7 +3548,6 @@ class OFPActionPushTrh(OFPAction):
         PAD
         uint32_t padding;
         """
-        
         self.ip6trh_nxt = 1
         self.ip6trh_len = length
         self.ip6trh_ver_opt = 0x0101 
@@ -3557,19 +3557,23 @@ class OFPActionPushTrh(OFPAction):
         self.in6_addr_dst = 0x1010101010101010
         self.sport = 346
         self.dport = 346
+        self.tlvs=tlvs
+        self.len=ofproto.OFP_ACTION_PUSH_TRH_SIZE+len(self.tlvs)
                 
-        
     @classmethod
     def parser(cls, buf, offset):
         (type_, len_) = struct.unpack_from(
             ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf, offset)
         return cls() 
     
-    def serialize(self, buf, offset):        
+    def serialize(self, buf, offset):
+        self.len+=len(self.tlvs)        
         msg_pack_into(ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf,
                     offset, self.type, self.len, self.ip6trh_nxt,
                     self.ip6trh_len, self.ip6trh_ver_opt, self.ip6trh_nextuid_flags,
                     self.in6_addr_src, self.in6_addr_src, self.in6_addr_dst, self.in6_addr_dst, self.sport, self.dport)
+               
+        buf.extend(self.tlvs)
         
 @OFPAction.register_action_type(
     ofproto.OFPAT_EXPERIMENTER,
