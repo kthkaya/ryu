@@ -177,6 +177,7 @@ OFPXMC_NXM_0 = 0x0000           # Backward compatibility with NXM
 OFPXMC_NXM_1 = 0x0001           # Backward compatibility with NXM
 OFPXMC_OPENFLOW_BASIC = 0x8000  # Basic class for OpenFlow
 OFPXMC_EXPERIMENTER = 0xFFFF    # Experimenter class
+OFPXMC_TRH = 0xFFFF             # TRF
 
 # enum ofp_vlan_id
 OFPVID_PRESENT = 0x1000     # bit that indicate that a VLAN id is set.
@@ -1229,6 +1230,8 @@ oxm_types = [
     # EXT-233 Output match Extension
     # NOTE(yamamoto): The spec says uint64_t but I assume it's an error.
     oxm_fields.ONFExperimenter('actset_output', 43, type_desc.Int4),
+    #TRH
+    oxm_fields.Trh('trh_nextuid', 45, type_desc.Int4),
 ] + nicira_ext.oxm_types
 
 oxm_fields.generate(__name__)
