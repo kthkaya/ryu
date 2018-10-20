@@ -78,13 +78,12 @@ from ryu.ofproto.oxx_fields import (
     _serialize_header)
 from ryu.ofproto import ofproto_common
 
-
 OFPXMC_NXM_0 = 0  # Nicira Extended Match (NXM_OF_)
 OFPXMC_NXM_1 = 1  # Nicira Extended Match (NXM_NX_)
 OFPXMC_OPENFLOW_BASIC = 0x8000
 OFPXMC_PACKET_REGS = 0x8001
 OFPXMC_EXPERIMENTER = 0xffff
-
+OFPXMC_TRH = 0xffff
 
 class _OxmClass(object):
     def __init__(self, name, num, type_):
@@ -99,11 +98,9 @@ class _OxmClass(object):
 
 class OpenFlowBasic(_OxmClass):
     _class = OFPXMC_OPENFLOW_BASIC
-
-
+    
 class PacketRegs(_OxmClass):
     _class = OFPXMC_PACKET_REGS
-
 
 class _Experimenter(_OxmClass):
     _class = OFPXMC_EXPERIMENTER
@@ -113,6 +110,8 @@ class _Experimenter(_OxmClass):
         self.num = (self.experimenter_id, self.oxm_type)
         self.exp_type = self.oxm_field
 
+class Trh(_Experimenter):
+    experimenter_id = ofproto_common.TRH_EXPERIMENTER_ID
 
 class ONFExperimenter(_Experimenter):
     experimenter_id = ofproto_common.ONF_EXPERIMENTER_ID
@@ -164,13 +163,22 @@ def generate(modname):
         setattr(mod, k, v)
 
     for i in mod.oxm_types:
+        
+        uk = i.name.upper()
+        ofpxmt = i.oxm_field
+        td = i.type
+        
+        if "TRH_NEXTUID" in uk:
+            add_attr('OFPXMT_TRHB_' + uk[-7:], ofpxmt)
+            add_attr('OXM_' + uk, mod.oxm_tlv_header(ofpxmt, td.size))
+            add_attr('OXM_' + uk + '_W', mod.oxm_tlv_header_w(ofpxmt, td.size))
+            continue
+            
         if isinstance(i.num, tuple):
             continue
         if i._class != OFPXMC_OPENFLOW_BASIC:
             continue
-        uk = i.name.upper()
-        ofpxmt = i.oxm_field
-        td = i.type
+                
         add_attr('OFPXMT_OFB_' + uk, ofpxmt)
         add_attr('OXM_OF_' + uk, mod.oxm_tlv_header(ofpxmt, td.size))
         add_attr('OXM_OF_' + uk + '_W', mod.oxm_tlv_header_w(ofpxmt, td.size))

@@ -40,6 +40,7 @@ The following extensions are not implemented yet.
     - EXT-192-v Vacancy events Extension
 """
 
+
 import struct
 import base64
 
@@ -695,6 +696,7 @@ class Flow(object):
         self.pbb_isid = 0
         self.tunnel_id = 0
         self.ipv6_exthdr = 0
+        self.trh_nextuid = 0
 
 
 class FlowWildcards(object):
@@ -715,6 +717,7 @@ class FlowWildcards(object):
         self.pbb_isid_mask = 0
         self.tunnel_id_mask = 0
         self.ipv6_exthdr_mask = 0
+        self.trh_nextuid_mask = 0
         self.wildcards = (1 << 64) - 1
 
     def ft_set(self, shift):
@@ -785,6 +788,7 @@ class OFPMatch(StringifyMixin):
                                      (EXT-109 ONF Extension)
     actset_output    Integer 32bit   Output port from action set metadata
                                      (EXT-233 ONF Extension)
+    trh_nextuid      Integer 32bit   TRH Next h-VNF UID
     ================ =============== ==================================
 
     Example::
@@ -1031,6 +1035,7 @@ class OFPMatch(StringifyMixin):
         OXM_OF_PBB_ISID        PBB I-SID
         OXM_OF_TUNNEL_ID       Logical Port Metadata
         OXM_OF_IPV6_EXTHDR     IPv6 Extension Header pseudo-field
+        OXM_TRH_NEXTUID        TRH Next h-VNF UID
         ====================== ===================================
         """
         self.fields.append(OFPMatchField.make(header, value, mask))
@@ -1287,6 +1292,14 @@ class OFPMatch(StringifyMixin):
                 header = ofproto.OXM_OF_IPV6_EXTHDR
             self.append_field(header, self._flow.ipv6_exthdr,
                               self._wc.ipv6_exthdr_mask)
+
+        if self._wc.ft_test(ofproto.OFPXMT_TRHB_NEXTUID):
+            if self._wc.ipv6_flabel_mask == UINT32_MAX:
+                header = ofproto.OXM_TRH_NEXTUID
+            else:
+                header = ofproto.OXM_TRH_NEXTUID_W
+            self.append_field(header, self._flow.trh_nextuid,
+                              self._wc.trh_nextuid_mask)
 
         field_offset = offset + 4
         for f in self.fields:
@@ -2246,7 +2259,6 @@ class MTTunnelId(OFPMatchField):
         self.value = value
         self.mask = mask
 
-
 @OFPMatchField.register_field_header([ofproto.OXM_OF_IPV6_EXTHDR,
                                       ofproto.OXM_OF_IPV6_EXTHDR_W])
 class MTIPv6ExtHdr(OFPMatchField):
@@ -2257,6 +2269,15 @@ class MTIPv6ExtHdr(OFPMatchField):
         self.value = value
         self.mask = mask
 
+@OFPMatchField.register_field_header([ofproto.OXM_TRH_NEXTUID,
+                                      ofproto.OXM_TRH_NEXTUID_W])
+class MTTrhNextuid(OFPMatchField):
+    pack_str = '!I'
+
+    def __init__(self, header, value, mask=None):
+        super(MTTrhNextuid, self).__init__(header)
+        self.value = value
+        self.mask = mask
 
 @_register_parser
 @_set_msg_type(ofproto.OFPT_PACKET_IN)
@@ -3516,13 +3537,10 @@ class OFPActionPopPbb(OFPAction):
             ofproto.OFP_ACTION_HEADER_PACK_STR, buf, offset)
         return cls()
 
+
 @OFPAction.register_action_type(ofproto.OFPAT_SET_TRH_NEXTUID,
                                 ofproto.OFP_ACTION_HEADER_SIZE)
 class OFPActionSetTrhNextuid(OFPAction):
-    """
-    TRH Stuff
-    """
-
     def __init__(self, type_=None, len_=None):
         super(OFPActionSetTrhNextuid, self).__init__()
 
@@ -3532,7 +3550,78 @@ class OFPActionSetTrhNextuid(OFPAction):
             ofproto.OFP_ACTION_HEADER_PACK_STR, buf, offset)
         return cls()
 
+      
+@OFPAction.register_action_type(ofproto.OFPAT_POP_TRH,
+                                ofproto.OFP_ACTION_HEADER_SIZE)
+class OFPActionPopTrh(OFPAction):
+    def __init__(self, type_=None, len_=None):
+        super(OFPActionPopTrh, self).__init__()
 
+    @classmethod
+    def parser(cls, buf, offset):
+        (type_, len_) = struct.unpack_from(
+            ofproto.OFP_ACTION_HEADER_PACK_STR, buf, offset)
+        return cls()
+
+      
+@OFPAction.register_action_type(ofproto.OFPAT_PUSH_TRH,
+                                ofproto.OFP_ACTION_PUSH_TRH_SIZE)
+class OFPActionPushTrh(OFPAction):
+    """
+    TRH Stuff
+    
+    Example::
+            actions += [parser.OFPActionPushTrh(
+                            length=8,
+                            version=1,
+                            options=0x123,
+                            nextuid=0x3b4d01]
+    """
+    
+    def __init__(self, length, nextuid, tlvs, type_=None, len_=None):
+        super(OFPActionPushTrh, self).__init__()
+        
+        """
+        struct ip6_trhdr trh;
+        uint8_t  ip6trh_nxt;           // Next header
+        uint8_t  ip6trh_len;           // Length in units of 8 octets, excluding the first 8 octets (rfc6564 sec 4)
+        uint16_t ip6trh_ver_opt;       // Four bits Version, Twelve bits Options
+        uint32_t ip6trh_nextuid_flags; //Twenty-four bits Next h-VNF UID, Eight bitsFlags
+        TRID
+        struct in6_addr src;
+        struct in6_addr dst;
+        uint16_t sport;
+        uint16_t dport;
+        PAD
+        uint32_t padding;
+        """
+        self.ip6trh_nxt = 1
+        self.ip6trh_len = length
+        self.ip6trh_ver_opt = 0x0101 
+        self.ip6trh_nextuid_flags = nextuid
+        
+        self.in6_addr_src = 0x1010101010101010
+        self.in6_addr_dst = 0x1010101010101010
+        self.sport = 346
+        self.dport = 346
+        self.tlvs=tlvs
+        self.len=ofproto.OFP_ACTION_PUSH_TRH_SIZE+len(self.tlvs)
+                
+    @classmethod
+    def parser(cls, buf, offset):
+        (type_, len_) = struct.unpack_from(
+            ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf, offset)
+        return cls() 
+    
+    def serialize(self, buf, offset):
+        self.len+=len(self.tlvs)        
+        msg_pack_into(ofproto.OFP_ACTION_PUSH_TRH_PACK_STR, buf,
+                    offset, self.type, self.len, self.ip6trh_nxt,
+                    self.ip6trh_len, self.ip6trh_ver_opt, self.ip6trh_nextuid_flags,
+                    self.in6_addr_src, self.in6_addr_src, self.in6_addr_dst, self.in6_addr_dst, self.sport, self.dport)
+               
+        buf.extend(self.tlvs)
+        
 @OFPAction.register_action_type(
     ofproto.OFPAT_EXPERIMENTER,
     ofproto.OFP_ACTION_EXPERIMENTER_HEADER_SIZE)
