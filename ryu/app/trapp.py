@@ -12,8 +12,6 @@ from ryu.lib.packet.ether_types import ETH_TYPE_IPV6
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ether
 from ryu.lib import addrconv
-#from nose.tools import ok_
-
 import struct
 
 
@@ -33,7 +31,7 @@ class Trapp(app_manager.RyuApp):
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
+        #parser = datapath.ofproto_parser
         self.switches[datapath.id] = datapath
 
         print ("Switch DPID %s", hex(datapath.id))
@@ -45,8 +43,7 @@ class Trapp(app_manager.RyuApp):
         # 128, OVS will send Packet-In with invalid buffer_id and
         # truncated packet data. In that case, we cannot output packets
         # correctly.  The bug has been fixed in OVS v2.1.0.
-       
-        
+              
         """
         match = parser.OFPMatch()
         #actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
@@ -55,20 +52,6 @@ class Trapp(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
         """
-        
-        """
-        match.set_in_port(1)
-        
-        actions.pop()
-        actions.append(parser.OFPActionOutput(ofproto.OFPP_LOCAL))
-        self.add_flow(datapath, 50, match, actions)
-        actions.pop()
-        actions.append(parser.OFPActionOutput(1))
-        match = parser.OFPMatch(in_port=ofproto.OFPP_LOCAL)
-        self.add_flow(datapath, 50, match, actions)
-        """
-       
-       
         
         #action=LOCAL for each bridge's IP address for bridge to own its IP (ARP res etc.)
         dpidLast2= hex(datapath.id)[16:]
@@ -122,14 +105,10 @@ class Trapp(app_manager.RyuApp):
             actions.append(parser.OFPActionOutput(2, 2000))
             #self.add_flow(dp, 10, match, actions)
         """
-        
-        
+               
         #self.logger.info("\n--------PACKET_IN--------")
         #self.logger.info("\Switch: %s, in_port: %s",hex(dp.id),msg.match['in_port'])
-        #self.packetParser(msg.data)
-        
-        
-        
+        #self.packetParser(msg.data)                     
         
         """
         #if dp.id == 0x1122334455667700:
@@ -138,9 +117,7 @@ class Trapp(app_manager.RyuApp):
         elif in_port == 1:
             self.logger.info("\nIn port is VETH")
             actions.append(parser.OFPActionOutput(ofproto.OFPP_LOCAL))
-        """
-        
-
+        """     
         
         #Installing a flow rule
         #1. Create the match
@@ -231,7 +208,7 @@ class Trapp(app_manager.RyuApp):
             actions = []
             parser = dp.ofproto_parser
             match = parser.OFPMatch()
-            #f = parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID, s_vid)
+            
             ofTunId = parser.OFPMatchField.make(dp.ofproto.OXM_OF_TUNNEL_ID, tunnelId)
             
             if dpid & TEMask == 0x2200000000000000:
@@ -248,39 +225,24 @@ class Trapp(app_manager.RyuApp):
                 self.installTunPrereq(dp, leftNeighIP, 1)
                 self.installTunPrereq(dp, rightNeighIP, 2)
                 
-                
-                ofTunId = parser.OFPMatchField.make(dp.ofproto.OXM_OF_TUNNEL_ID, tunnelId+50)
+                """
+                    Install SC rules via VXLAN
+                """
+                ofTunId = parser.OFPMatchField.make(dp.ofproto.OXM_OF_TUNNEL_ID, tunnelId)
                 match.set_in_port(8)
-                
                 match.set_tunnel_id(tunnelId)
-                #match.set_dl_type(ether.ETH_TYPE_8021Q)
-                #match.set_vlan_vid(s_vid | dp.ofproto.OFPVID_PRESENT)
-                #actions.append(parser.OFPActionPopVlan())
-                #actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                #actions.append(parser.OFPActionSetField(vlan_vid= (s_vid+100) | dp.ofproto.OFPVID_PRESENT))
+                match.set_vlan_vid(s_vid | dp.ofproto.OFPVID_PRESENT)
+                actions.append(parser.OFPActionPopVlan())
+                actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
+                actions.append(parser.OFPActionSetField(vlan_vid= (s_vid+100) | dp.ofproto.OFPVID_PRESENT))
                 actions.append(parser.OFPActionSetField(ofTunId))
-                
                 actions.append(parser.OFPActionOutput(9, 2000))
-                tunnelId+=50
+                
                 s_vid+=100
-                
-                
-                
-                
                                 
             elif dpid & 0x00000000000000ff == 0x00000000000000ff:
                 #The exit TE 
-                match.set_in_port(8)
-                
-                match.set_tunnel_id(tunnelId)
-                #match.set_dl_type(ether.ETH_TYPE_8021Q)
-                #match.set_vlan_vid(s_vid)
-                #actions.append(parser.OFPActionPopVlan())
-                
-                actions.append(parser.OFPActionOutput(9, 2000))
-                tunnelId+=50
-                s_vid+=100
-                
+
                 """
                     Install rules for tunnel neighbor switch on the left
                 """
@@ -289,14 +251,21 @@ class Trapp(app_manager.RyuApp):
                 self.installTunPrereq(dp, leftNeighIP, 1)
                 
                 
+                match.set_in_port(8)
+                match.set_tunnel_id(tunnelId)
+                match.set_vlan_vid(s_vid)
+                
+                actions.append(parser.OFPActionPopVlan())
+                actions.append(parser.OFPActionOutput(9, 2000))
+                
             elif dpid :
                 #The ingress TE
                 print("Ingress TE")
                 match.set_in_port(5)
-                #f = dp.ofproto_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID, 100)
+                f = dp.ofproto_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID, 100)
                 
-                #actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                #actions.append(parser.OFPActionSetField(vlan_vid= (s_vid) | dp.ofproto.OFPVID_PRESENT))
+                actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
+                actions.append(parser.OFPActionSetField(vlan_vid= (s_vid) | dp.ofproto.OFPVID_PRESENT))
                 actions.append(parser.NXActionSetTunnel(tunnelId))
                 
                 
@@ -311,27 +280,14 @@ class Trapp(app_manager.RyuApp):
                 
             
             self.add_flow(dp, 10, match, actions)
-            """
-            
-            
-            s_vid = 9 | dp.ofproto.OFPVID_PRESENT
-            match = dp.ofproto_parser.OFPMatch()
-            match.set_in_port(2)
-            match.set_dl_type(ether.ETH_TYPE_IP)
-            f = dp.ofproto_parser.OFPMatchField.make(
-                dp.ofproto.OXM_OF_VLAN_VID, s_vid)
-            actions = [dp.ofproto_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                       dp.ofproto_parser.OFPActionSetField(vlan_vid=s_vid),
-                       dp.ofproto_parser.OFPActionOutput(3, 0)]
-            self.add_flow(dp, 10, match, actions)
-            """
+
+
     def ipv4_to_int(self, ip_text):
         if ip_text == 0:
             return ip_text
         assert isinstance(ip_text, str)
         return struct.unpack('!I', addrconv.ipv4.text_to_bin(ip_text))[0]      
-    
-    
+        
     """
         ARP and Next-Hop rules for VXLAN tunnels
     """
@@ -363,8 +319,6 @@ class Trapp(app_manager.RyuApp):
             p_udp = protocols['udp']
             self.logger.info("\L4= UDP src:%s dst:%s",p_udp.src_port,p_udp.dst_port)
     
-        #self.logger.info("\n-----------------------------")
-    
     """
         Get protocols from packet such as  ethernet, arp, ipv4 etc.
     """
@@ -376,7 +330,4 @@ class Trapp(app_manager.RyuApp):
             else:
                 protocols['payload'] = p
         return protocols
-
-        
-        
         
