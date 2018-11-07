@@ -166,7 +166,7 @@ class Trapp(app_manager.RyuApp):
             parser = dp.ofproto_parser
             if dpid & TEMask != 0x1100000000000000:
                 #Not a TE. Install matchnextuid + setnextuid action.
-                match = parser.OFPMatch(in_port=8, trh_nextuid=nextUID, eth_type=ETH_TYPE_IPV6)
+                match = parser.OFPMatch(in_port=8, trh_nextuid=nextUID<<8, eth_type=ETH_TYPE_IPV6)
                 actions.append(parser.OFPActionSetTrhNextuid())
                 actions.append(parser.OFPActionOutput(9, 2000))
                 nextUID+=1
@@ -175,7 +175,7 @@ class Trapp(app_manager.RyuApp):
         
             elif dpid & 0x00000000000000ff == 0x00000000000000ff:
                 #The exit TE 
-                match = parser.OFPMatch(in_port=8, trh_nextuid=nextUID, eth_type=ETH_TYPE_IPV6)
+                match = parser.OFPMatch(in_port=8, trh_nextuid=nextUID<<8, eth_type=ETH_TYPE_IPV6)
                 actions.append(parser.OFPActionPopTrh())
                 actions.append(parser.OFPActionOutput(9, 2000))
                 self.add_flow(dp, 10, match, actions)
