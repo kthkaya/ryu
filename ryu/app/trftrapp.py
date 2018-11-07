@@ -174,7 +174,7 @@ class Trapp(app_manager.RyuApp):
                 continue
         
             elif dpid & 0x00000000000000ff == 0x00000000000000ff:
-                #The exit TE 
+                #The exit TE. 
                 match = parser.OFPMatch(in_port=8, trh_nextuid=nextUID<<8, eth_type=ETH_TYPE_IPV6)
                 actions.append(parser.OFPActionPopTrh())
                 actions.append(parser.OFPActionOutput(9, 2000))
