@@ -83,7 +83,7 @@ class Trapp(app_manager.RyuApp):
             #The Inbound TE. Install push_trh
             trhLen= 5 + len(self.tlvStack)/8
             
-            match = parser.OFPMatch(in_port=5, eth_type=ETH_TYPE_IPV6)
+            match = parser.OFPMatch(in_port=8, eth_type=ETH_TYPE_IPV6)
             #Following will fail if a packet comes in before the full chain is deployed
             actions.append(parser.OFPActionPushTrh(length=trhLen, nextuid=0x3b4d0100, tlvs=self.tlvStack))
             actions.append(parser.OFPActionOutput(9, 2000))
