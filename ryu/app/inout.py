@@ -44,12 +44,12 @@ class Trapp(app_manager.RyuApp):
         # truncated packet data. In that case, we cannot output packets
         # correctly.  The bug has been fixed in OVS v2.1.0.
               
-        """              
+	"""                      
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        #actions = [parser.OFPActionOutput(ofproto.OFPP_NORMAL,
+        #actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
         #                                  ofproto.OFPCML_NO_BUFFER)]
+        actions = [parser.OFPActionOutput(ofproto.OFPP_NORMAL,
+                                          ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
         """
     
@@ -133,7 +133,8 @@ class Trapp(app_manager.RyuApp):
         print("\nInstalling Core rules")
         self.logger.info("\nThere are %i switches", len(self.switches))
        
-        for dpid, dp in self.switches.iteritems():
+ 
+	for dpid, dp in self.switches.iteritems():
             actions = []
             parser = dp.ofproto_parser
             self.logger.info("\nSwitch loooopn DPID: %s", hex(dpid))
