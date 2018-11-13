@@ -141,3 +141,8 @@ class Trapp(app_manager.RyuApp):
             match = parser.OFPMatch(in_port=8)
             actions.append(parser.OFPActionOutput(9, 2000))
             self.add_flow(dp, 10, match, actions)    
+            
+            actions = []
+            match = parser.OFPMatch(in_port=9)
+            actions.append(parser.OFPActionOutput(8, 2000))
+            self.add_flow(dp, 10, match, actions)
