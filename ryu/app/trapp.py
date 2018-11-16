@@ -261,7 +261,7 @@ class Trapp(app_manager.RyuApp):
             elif dpid :
                 #The ingress TE
                 print("Ingress TE")
-                match.set_in_port(5)
+                match.set_in_port(8)
                 f = dp.ofproto_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID, 100)
                 
                 actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
