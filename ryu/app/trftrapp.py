@@ -22,10 +22,8 @@ class Trapp(app_manager.RyuApp):
         super(Trapp, self).__init__(*args, **kwargs)
         #Store switches inb a dictionary where dpipd is key and the datapath is the value
         self.switches = {}
-        self.mac_to_port = {}
         #Temporary solution, tlvstack shouldnt be per controller, should be per flow
         self.tlvStack = bytearray()
-
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -36,19 +34,10 @@ class Trapp(app_manager.RyuApp):
 
         print ("Switch DPID %s", hex(datapath.id))
 
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
-              
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
-        #actions = [parser.OFPActionOutput(ofproto.OFPP_NORMAL,
-        #                                  ofproto.OFPCML_NO_BUFFER)]
+        
         self.add_flow(datapath, 0, match, actions)
     
     @set_ev_cls(EventSwitchEnter)
@@ -78,40 +67,37 @@ class Trapp(app_manager.RyuApp):
         parser = dp.ofproto_parser 
         actions = []
         
-        
-        if dp.id == 0x1122334455667700:
-            #The Inbound TE. Install push_trh
-            trhLen= 5 + len(self.tlvStack)/8
+        if dp.id & 0xff00000000000000 == 0x1100000000000000:
+            #The Inbound TE.
             
-            match = parser.OFPMatch(in_port=8, eth_type=ETH_TYPE_IPV6)
-            #Following will fail if a packet comes in before the full chain is deployed
-            actions.append(parser.OFPActionPushTrh(length=trhLen, nextuid=0x3b4d0100, tlvs=self.tlvStack))
-            actions.append(parser.OFPActionOutput(9, 2000))
-            self.add_flow(dp, 10, match, actions)
+            pkt = packet.Packet(msg.data)
+            protocols = self.get_protocols(pkt)
+            p_eth = protocols['ethernet']
         
-               
-        #self.logger.info("\n--------PACKET_IN--------")
-        #self.logger.info("\Switch: %s, in_port: %s",hex(dp.id),msg.match['in_port'])
-        #self.packetParser(msg.data)                     
-        
-        """
-        #if dp.id == 0x1122334455667700:
-        if in_port == ofproto.OFPP_LOCAL:
-            self.logger.info("\nIn port is LOCAL")
-        elif in_port == 1:
-            self.logger.info("\nIn port is VETH")
-            actions.append(parser.OFPActionOutput(ofproto.OFPP_LOCAL))
-        """     
-        
-        #Installing a flow rule
-        #1. Create the match
-        #msg = ev.msg
-        #in_port = msg.match['in_port']
-        # Get the destination ethernet address
-        #pkt = packet.Packet(msg.data)
-        #eth = pkt.get_protocol(ethernet.ethernet)
-        #dst = eth.dst
-
+            if p_eth.ethertype == ether.ETH_TYPE_IPV6:
+                p_ipv6 = protocols['ipv6']
+                #self.logger.info("\L3= src:%s dst:%s proto:%s",p_ipv6.src,p_ipv6.dst, p_ipv6.nxt)
+                
+                if p_ipv6.nxt == 17:
+                    p_udp = protocols['udp']
+                    #self.logger.info("\L4= UDP src:%s dst:%s",p_udp.src_port,p_udp.dst_port)
+                    trhLen= 5 + len(self.tlvStack)/8
+                    
+                    match = parser.OFPMatch(eth_type=ETH_TYPE_IPV6, ipv6_src=p_ipv6.src, ipv6_dst=p_ipv6.dst, ip_proto=p_ipv6.nxt, udp_src=p_udp.src_port, udp_dst=p_udp.dst_port)
+                    #Following will fail if a packet comes in before the full chain is deployed
+                    actions.append(parser.OFPActionPushTrh(length=trhLen, nextuid=0x3b4d0100, tlvs=self.tlvStack))
+                    actions.append(parser.OFPActionOutput(9, 2000))
+                    self.add_flow(dp, 15, match, actions)
+                    
+                    #Send the packet that came to the controller back so it is outputted as well.
+                    data = None
+                    if msg.buffer_id == dp.ofproto.OFP_NO_BUFFER:
+                        data = msg.data
+            
+                    out = parser.OFPPacketOut(
+                        datapath=dp, buffer_id=msg.buffer_id, in_port=msg.match['in_port'],
+                        actions=actions, data=data)
+                    dp.send_msg(out)          
         
         
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
@@ -179,111 +165,12 @@ class Trapp(app_manager.RyuApp):
                 actions.append(parser.OFPActionPopTrh())
                 actions.append(parser.OFPActionOutput(9, 2000))
                 self.add_flow(dp, 10, match, actions)
-     
-    def chainByVXLAN(self):
-        print("\VXLAN Chaining")
-        TEMask = 0xff00000000000000
-        #VLAN ID
-        s_vid = 100
-        tunnelId = 50 
-        
-        for dpid, dp in self.switches.iteritems():
-            print("\nVXLAN Chaining DPID: %s", hex(dpid))
-            actions = []
-            parser = dp.ofproto_parser
-            match = parser.OFPMatch()
-            
-            ofTunId = parser.OFPMatchField.make(dp.ofproto.OXM_OF_TUNNEL_ID, tunnelId)
-            
-            if dpid & TEMask == 0x2200000000000000:
-                #Switches between TEs
-                
-                """
-                    Install rules for tunnel neighbors switches on the left and right 
-                """
-                dpidLast2= hex(dpid)[16:]
-                if "ff" in dpidLast2:
-                    continue
-                leftNeighIP="192.168.10."+str(int(dpidLast2,16))
-                rightNeighIP="192.168.10."+str(int(dpidLast2,16)+2)
-                self.installTunPrereq(dp, leftNeighIP, 1)
-                self.installTunPrereq(dp, rightNeighIP, 2)
-                
-                """
-                    Install SC rules via VXLAN
-                """
-                ofTunId = parser.OFPMatchField.make(dp.ofproto.OXM_OF_TUNNEL_ID, tunnelId)
-                match.set_in_port(8)
-                match.set_tunnel_id(tunnelId)
-                match.set_vlan_vid(s_vid | dp.ofproto.OFPVID_PRESENT)
-                actions.append(parser.OFPActionPopVlan())
-                actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                actions.append(parser.OFPActionSetField(vlan_vid= (s_vid+100) | dp.ofproto.OFPVID_PRESENT))
-                actions.append(parser.OFPActionSetField(ofTunId))
-                actions.append(parser.OFPActionOutput(9, 2000))
-                
-                s_vid+=100
-                                
-            elif dpid & 0x00000000000000ff == 0x00000000000000ff:
-                #The exit TE 
-
-                """
-                    Install rules for tunnel neighbor switch on the left
-                """
-                dpidLast2= hex(dpid)[16:]
-                leftNeighIP="192.168.10."+str(len(self.switches)-1)
-                self.installTunPrereq(dp, leftNeighIP, 1)
-                
-                
-                match.set_in_port(8)
-                match.set_tunnel_id(tunnelId)
-                match.set_vlan_vid(s_vid)
-                
-                actions.append(parser.OFPActionPopVlan())
-                actions.append(parser.OFPActionOutput(9, 2000))
-                
-            elif dpid :
-                #The ingress TE
-                print("Ingress TE")
-                match.set_in_port(5)
-                f = dp.ofproto_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID, 100)
-                
-                actions.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                actions.append(parser.OFPActionSetField(vlan_vid= (s_vid) | dp.ofproto.OFPVID_PRESENT))
-                actions.append(parser.NXActionSetTunnel(tunnelId))
-                
-                
-                actions.append(parser.OFPActionOutput(9, 2000))
-                
-                """
-                    Install rules for tunnel neighbor switch on the right
-                """
-                dpidLast2= hex(dpid)[16:]
-                rightNeighIP="192.168.10.2"
-                self.installTunPrereq(dp, rightNeighIP, 1)
-                
-            
-            self.add_flow(dp, 10, match, actions)
-
 
     def ipv4_to_int(self, ip_text):
         if ip_text == 0:
             return ip_text
         assert isinstance(ip_text, str)
         return struct.unpack('!I', addrconv.ipv4.text_to_bin(ip_text))[0]      
-        
-    """
-        ARP and Next-Hop rules for VXLAN tunnels
-    """
-    def installTunPrereq(self, datapath, tunDstIP, dstPort):
-        
-        nw_dst_int = self.ipv4_to_int(tunDstIP)
-        
-        nwMatch = datapath.ofproto_parser.OFPMatch(eth_type=ether.ETH_TYPE_ARP, arp_tpa=nw_dst_int)       
-        nwActions = [datapath.ofproto_parser.OFPActionOutput(dstPort)]
-        self.add_flow(datapath, 1, nwMatch, nwActions)
-        nwMatch = datapath.ofproto_parser.OFPMatch(eth_type=ether.ETH_TYPE_IP, ipv4_dst=nw_dst_int)
-        self.add_flow(datapath, 1, nwMatch, nwActions)
         
     def packetParser(self, msgData):
         # parse
