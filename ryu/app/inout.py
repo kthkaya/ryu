@@ -59,8 +59,8 @@ class Trapp(app_manager.RyuApp):
     
     @set_ev_cls(EventSwitchEnter)
     def _ev_switch_enter_handler(self, ev):
-        print('\nSwitch enter: %s' % ev)
-        print('\nDPID: %s' % hex(ev.switch.dp.id))
+        #print('\nSwitch enter: %s' % ev)
+        #print('\nDPID: %s' % hex(ev.switch.dp.id))
         
         #Install forwarding rules in the core when the final switch (TE) of the chain is deployed
         #The final TE has the last two chars ff in dpid
@@ -71,8 +71,8 @@ class Trapp(app_manager.RyuApp):
         """    
     @set_ev_cls(EventSwitchLeave)
     def _ev_switch_leave_handler(self, ev):
-        print('\nSwitch leave: %s' % ev)
-        print('\nLeaving DPID: %s' % hex(ev.switch.dp.id))
+        #print('\nSwitch leave: %s' % ev)
+        #print('\nLeaving DPID: %s' % hex(ev.switch.dp.id))
         self.switches.pop(ev.switch.dp.id)
         if len(self.switches) < 1:
             self.packetInCache ={}
@@ -157,9 +157,7 @@ class Trapp(app_manager.RyuApp):
                 continue
             
             match = parser.OFPMatch(in_port=inPort)
-            self.logger.info(match)
             actions.append(parser.OFPActionOutput(outPort, 2000))
-            self.logger.info(actions)
             self.add_flow(dp, 10, match, actions)
 
             """
