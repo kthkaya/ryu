@@ -28,10 +28,12 @@ class Trapp(app_manager.RyuApp):
         CONF = cfg.CONF
         CONF.register_opts([
             cfg.IntOpt('chainLength', default=0, help = ('SC Chain length')),
-            cfg.IntOpt('polDBSize', default = 0, help = ('PolicyDB pre-generated nr of rules'))])
+            cfg.IntOpt('polDBSize', default = 0, help = ('PolicyDB pre-generated nr of rules')),
+            cfg.IntOpt('flowTimeout', default = 0, help = ('Flow rule timeout for the ingress TE rules'))])
 
         #self.chLen = CONF.chainLength
         #self.polDBSize = CONF.polDBSize
+	self.flowTimeout = CONF.flowTimeout
 
         chainPol = []
         for x in range(0,CONF.chainLength):
@@ -120,7 +122,7 @@ class Trapp(app_manager.RyuApp):
                 self.packetInCache[trid][1].remove(payload)
             #self.packetInCache.pop(trid) Another thread must cleanup this cache
     
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions, hardTimeout=None, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -130,9 +132,13 @@ class Trapp(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
                                     instructions=inst)
-        else:
+        if hardTimeout:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, hard_timeout=hardTimeout, instructions=inst)
+	else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
+
         datapath.send_msg(mod)
     
     def installCoreRules(self, trid, policy):
@@ -153,7 +159,7 @@ class Trapp(app_manager.RyuApp):
                 match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IPV6, ipv6_src=trid[0], ipv6_dst=trid[1], ip_proto=trid[4], udp_src=trid[2], udp_dst=trid[3])
                 actions.append(parser.OFPActionOutput(outPort, 2000))
                 packetOutActions = actions
-                self.add_flow(dp, 10, match, actions)
+                self.add_flow(dp, 10, match, actions, self.flowTimeout)
                 continue
             
             match = parser.OFPMatch(in_port=inPort)
