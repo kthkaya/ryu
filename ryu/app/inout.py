@@ -33,8 +33,7 @@ class Trapp(app_manager.RyuApp):
 
         #self.chLen = CONF.chainLength
         #self.polDBSize = CONF.polDBSize
-	self.flowTimeout = CONF.flowTimeout
-
+        self.flowTimeout = CONF.flowTimeout
         chainPol = []
         for x in range(0,CONF.chainLength):
             chainPol.append((8,9))
@@ -132,10 +131,10 @@ class Trapp(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
                                     instructions=inst)
-        if hardTimeout:
+        elif hardTimeout:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, hard_timeout=hardTimeout, instructions=inst)
-	else:
+        else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
 

@@ -29,10 +29,12 @@ class Trapp(app_manager.RyuApp):
         CONF = cfg.CONF
         CONF.register_opts([
             cfg.IntOpt('chainLength', default=0, help = ('SC Chain length')),
-            cfg.IntOpt('polDBSize', default = 0, help = ('PolicyDB pre-generated nr of rules'))])
+            cfg.IntOpt('polDBSize', default = 0, help = ('PolicyDB pre-generated nr of rules')),
+            cfg.IntOpt('flowTimeout', default = 0, help = ('Flow rule timeout for the ingress TE rules'))])
 
         #self.chLen = CONF.chainLength
         #self.polDBSize = CONF.polDBSize
+        self.flowTimeout = CONF.flowTimeout
 
         chainPol = []
         sVid = 100
@@ -136,7 +138,7 @@ class Trapp(app_manager.RyuApp):
                 self.packetInCache[trid][1].remove(payload)
             #self.packetInCache.pop(trid) Another thread must cleanup this cache
    
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_flow(self, datapath, priority, match, actions, hardTimeout=None, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -146,9 +148,13 @@ class Trapp(app_manager.RyuApp):
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
                                     instructions=inst)
+        elif hardTimeout:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, hard_timeout=hardTimeout, instructions=inst)
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
+
         datapath.send_msg(mod)
      
     def chainByVXLAN(self, trid, policy):
@@ -195,6 +201,7 @@ class Trapp(app_manager.RyuApp):
                 actions.append(parser.OFPActionSetField(vlan_vid= outVlan | dp.ofproto.OFPVID_PRESENT))
                 actions.append(parser.OFPActionSetField(ofTunId))
                 actions.append(parser.OFPActionOutput(outPort, 2000))
+                self.add_flow(dp, 10, match, actions)
                                 
             elif dpid & 0x00000000000000ff == 0x00000000000000ff:
                 #The exit TE 
@@ -211,6 +218,7 @@ class Trapp(app_manager.RyuApp):
                 match.set_vlan_vid(inVlan)              
                 actions.append(parser.OFPActionPopVlan())
                 actions.append(parser.OFPActionOutput(outPort, 2000))
+                self.add_flow(dp, 10, match, actions)
                 
             elif dpid:
                 #The ingress TE
@@ -226,9 +234,10 @@ class Trapp(app_manager.RyuApp):
                 dpidLast2= hex(dpid)[16:]
                 rightNeighIP="192.168.10.2"
                 self.installTunPrereq(dp, rightNeighIP, 1)
+                self.add_flow(dp, 10, match, actions, self.flowTimeout)
                 
-            if actions:
-                self.add_flow(dp, 10, match, actions)
+            #if actions:
+            #    self.add_flow(dp, 10, match, actions)
 
         return packetOutActions
     
