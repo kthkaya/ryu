@@ -106,7 +106,7 @@ class Trapp(app_manager.RyuApp):
         
             #if dp.id & 0xff00000000000000 == 0x1100000000000000:
             #The Inbound TE.          
-            tlvStack = self.polLookup(trid)
+            tlvStack = self.polDB.find(trid)
             trhLen= 5 + len(self.tlvStack)/8
             
             match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IPV6, ipv6_src=trid[0], ipv6_dst=trid[1], ip_proto=trid[4], udp_src=trid[2], udp_dst=trid[3])
@@ -196,6 +196,3 @@ class Trapp(app_manager.RyuApp):
                 actions.append(parser.OFPActionPopTrh())
                 actions.append(parser.OFPActionOutput(9, 2000))
                 self.add_flow(dp, 10, match, actions)
-                
-    def polLookup(self,trid):
-        return self.polDB.find(trid)
